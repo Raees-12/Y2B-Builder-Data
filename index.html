@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="icon" type="image/jpeg" href="Assets/fav.jpg">
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <!-- Navbar -->
     <nav class="navbar" id="navbar">
@@ -14,14 +16,10 @@
             <div class="navbar-brand">
                 <img src="Assets/logo.webp" alt="Yes2Broker Logo" class="navbar-logo">
             </div>
-            
+
             <div class="navbar-search">
-                <input 
-                    type="text" 
-                    class="search-input" 
-                    id="searchInput"
-                    placeholder="Search by project, locality, or builder..."
-                >
+                <input type="text" class="search-input" id="searchInput"
+                    placeholder="Search by project, locality, or builder...">
             </div>
         </div>
     </nav>
@@ -122,6 +120,14 @@
         <!-- Property Grid -->
         <div class="property-grid" id="propertyGrid" style="display: none;"></div>
 
+        <div class="load-more-wrapper">
+            <button id="loadMoreBtn" class="load-more-btn">
+                Load More Properties
+            </button>
+        </div>
+
+
+
         <!-- Empty State -->
         <div class="empty-state" id="emptyState" style="display: none;">
             <div class="empty-content">
@@ -148,4 +154,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>
