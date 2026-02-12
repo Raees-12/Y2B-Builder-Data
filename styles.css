@@ -742,3 +742,147 @@ width: 100%;
     object-fit: contain;
     pointer-events: none;
 }
+
+.variant-card {
+    border-bottom: 1px solid var(--border-color);
+    padding: 14px 0;
+}
+
+.variant-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-blue);
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.variant-highlights {
+    font-size: 13px;
+    color: var(--text-gray);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 8px 0 6px;
+}
+
+.variant-details {
+    font-size: 13px;
+    color: var(--text-dark);
+    display: grid;
+    gap: 6px;
+    padding-top: 8px;
+}
+
+.accordion-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+}
+
+.accordion-body.open {
+    max-height: 300px;
+}
+    
+/* ===== Load More iOS Style ===== */
+
+.load-more-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 32px 0 10px;
+}
+
+.load-more-btn {
+    display: none; /* JS controls visibility */
+    padding: 14px 26px;
+    border-radius: 999px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.2px;
+
+    /* iOS glass gradient */
+    background: linear-gradient(135deg, #0A3D91 0%, #062859 100%);
+    color: #fff;
+
+    box-shadow:
+        0 6px 18px rgba(10, 61, 145, 0.25),
+        inset 0 1px 0 rgba(255,255,255,0.15);
+
+    transition: all 0.25s ease;
+}
+
+/* hover feel like iOS */
+.load-more-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow:
+        0 10px 26px rgba(10, 61, 145, 0.35),
+        inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+/* click press effect */
+.load-more-btn:active {
+    transform: scale(0.96);
+    box-shadow:
+        0 4px 12px rgba(10, 61, 145, 0.25),
+        inset 0 2px 6px rgba(0,0,0,0.25);
+}
+
+/* ===================================== */
+/* 📱 COMPACT 2-ROW MOBILE FILTER LAYOUT */
+/* ===================================== */
+
+@media (max-width: 640px) {
+
+    /* filter card tighter */
+    .filter-section {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    /* GRID → 2 columns compact */
+    .filter-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    /* labels smaller but clean */
+    .filter-label {
+        font-size: 10px;
+        margin-bottom: 4px;
+    }
+
+    /* dropdown compact height */
+    .filter-select {
+        height: 40px;
+        font-size: 13px;
+        border-radius: 10px;
+        padding: 0 12px;
+    }
+
+    /* search stays full width above */
+    .navbar-search {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .search-input {
+        height: 42px;
+        border-radius: 12px;
+        font-size: 14px;
+    }
+
+    /* RESET button same height as dropdown */
+    .btn-reset {
+        height: 40px;
+        border-radius: 10px;
+        font-size: 13px;
+        padding: 0;
+    }
+
+    /* make SORT + RESET sit nicely */
+    .filter-group:last-child {
+        grid-column: span 1;
+    }
+}
