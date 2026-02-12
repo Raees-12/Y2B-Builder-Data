@@ -2,6 +2,8 @@ const SHEET_JSON_URL = "https://docs.google.com/spreadsheets/d/1Vb0I2vzl0-OoqgPV
 
 let allProperties = [];
 let filteredProperties = [];
+let visibleCount = 12; // how many cards show first
+const LOAD_STEP = 12;  // how many load each click
 let messageTemplates = [];
 
 
@@ -121,6 +123,26 @@ function formatBrokerage(b) {
     if (num < 1) return (num * 100) + '%';
     return num + '%';
 }
+
+function formatPossessionDate(value) {
+    if (!value) return "N/A";
+
+    const match = /Date\((\d+),(\d+),(\d+)\)/.exec(value);
+    if (!match) return value;
+
+    const year = parseInt(match[1]);
+    const month = parseInt(match[2]);
+    const day = parseInt(match[3]);
+
+    const date = new Date(year, month, day);
+
+    return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+    });
+}
+
 
 // ---------- INIT ----------
 
@@ -294,6 +316,7 @@ function updateDependentFilters() {
 
 function applyFilters() {
     filteredProperties = allProperties.filter(property => {
+        visibleCount = 12; // reset on new filter
 
         if (currentFilters.city && property.city !== currentFilters.city) return false;
         if (currentFilters.locality && property.locality !== currentFilters.locality) return false;
@@ -415,8 +438,9 @@ function renderProperties() {
         resultsInfo.innerHTML = `Showing <strong>${filteredProperties.length}</strong> ${filteredProperties.length === 1 ? 'property' : 'properties'}`;
 
         const grouped = groupProjects(filteredProperties);
+        const visibleProjects = grouped.slice(0, visibleCount);
 
-        propertyGrid.innerHTML = grouped.map(property => `
+        propertyGrid.innerHTML = visibleProjects.map(property => `
             <div class="property-card" onclick="showPropertyDetails(${property.id})">
                 <div class="property-content">
                     <div class="property-header">
@@ -455,51 +479,90 @@ function renderProperties() {
                 </div>
             </div>
         `).join('');
+
+        // Load More button logic
+        const loadMoreBtn = document.getElementById("loadMoreBtn");
+
+        if (grouped.length > visibleCount) {
+            loadMoreBtn.style.display = "inline-flex";
+        } else {
+            loadMoreBtn.style.display = "none";
+        }
+
     }
 }
 
 // ---------- MODAL ----------
 
 function showPropertyDetails(propertyId) {
-    const property = allProperties.find(p => p.id === propertyId);
-    if (!property) return;
+
+    const clicked = allProperties.find(p => p.id === propertyId);
+    if (!clicked) return;
+
+    // get ALL variants of same project
+    const variants = allProperties.filter(p =>
+        p.projectName === clicked.projectName &&
+        p.city === clicked.city &&
+        p.locality === clicked.locality &&
+        (!currentFilters.size || p.size === currentFilters.size)
+    );
+
 
     const modalOverlay = document.getElementById('modalOverlay');
     const modalTitle = document.getElementById('modalTitle');
     const modalContent = document.getElementById('modalContent');
 
-    modalTitle.textContent = property.projectName;
+    modalTitle.textContent = clicked.projectName;
 
-    const details = [
-        { label: 'Project Name', value: property.projectName },
-        { label: 'City', value: property.city },
-        { label: 'Locality', value: property.locality },
-        { label: 'Size', value: property.size },
-        { label: 'Detailed Sizing', value: property.detailedSizing ? property.detailedSizing.replace(/Sq\.?Yrd/gi, '').trim() + ' Sq.Yrd' : 'N/A' },
-        { label: 'Total Units', value: property.totalUnits },
-        { label: 'Available Units', value: property.availableUnits },
-        { label: 'Price Per Sq.Yrd', value: formatPrice(property.pricePerSqYrd) },
-        { label: 'Box Price', value: formatPrice(property.boxPrice) },
-        { label: 'Sale Dead Amount', value: formatPrice(property.saleDeadAmount) },
-        { label: 'No. of Amenities', value: property.amenities },
-        { label: 'No. of Floors', value: property.floors },
-        { label: 'No. of Blocks', value: property.blocks },
-        { label: 'Parking Per Unit', value: property.parking },
-        { label: 'Status', value: property.status },
-        { label: 'Possession Time', value: property.possessionTime },
-        { label: 'RERA Registration', value: property.reraRegistration },
-        { label: 'Builder Name', value: property.builderName },
-    ];
+    modalContent.innerHTML = variants.map((v, i) => {
 
-    modalContent.innerHTML = details.map(detail => `
-        <div class="detail-row">
-            <div class="detail-label">${detail.label}</div>
-            <div class="detail-value ${detail.highlight ? 'highlight' : ''}">${detail.value || 'N/A'}</div>
+        const title =
+            `${v.size} • ${v.detailedSizing.replace(/Sq\.?\s*Yrd/gi, '').trim()} Sq.Yrd • ₹${formatPrice(v.boxPrice)}`;
+
+        // 🔹 NEW TOP ROW (prices + status)
+        const highlights = `
+        <div class="variant-highlights">
+            <span><strong>₹/Sq.Yrd:</strong> ${formatPrice(v.pricePerSqYrd)}</span>
+            <span><strong>Box:</strong> ${formatPrice(v.boxPrice)}</span>
+            <span><strong>Sale:</strong> ${formatPrice(v.saleDeadAmount)}</span>
+            <span><strong>Status:</strong> ${v.status}</span>
         </div>
-    `).join('');
+    `;
+
+        // 🔹 MOVED DOWN DETAILS
+        const details = `
+        <div class="variant-details">
+            <div><strong>Available:</strong> ${v.availableUnits}</div>
+            <div><strong>Floors:</strong> ${v.floors}</div>
+            <div><strong>Parking:</strong> ${v.parking}</div>
+            <div><strong>Amenities:</strong> ${v.amenities}</div>
+            <div><strong>RERA:</strong> ${v.reraRegistration}</div>
+            <div><strong>Builder:</strong> ${v.builderName}</div>
+            <div><strong>Possession:</strong> ${formatPossessionDate(v.possessionTime)}</div>
+        </div>
+    `;
+
+        return `
+        <div class="variant-card">
+            <div class="variant-title" onclick="toggleAccordion(${i})">
+                ${title}
+                <span class="accordion-icon">+</span>
+            </div>
+
+            ${highlights}
+
+            <div class="accordion-body" id="acc-${i}">
+                ${details}
+            </div>
+        </div>
+    `;
+    }).join('');
+
+
 
     modalOverlay.classList.add('open');
 }
+
 
 // ---------- CLOSE MODAL ----------
 
@@ -582,4 +645,29 @@ function initializeEventListeners() {
     document.getElementById('modalOverlay').addEventListener('click', e => {
         if (e.target.id === 'modalOverlay') closeModal();
     });
+
+    // Load More click
+    const loadMoreBtn = document.getElementById("loadMoreBtn");
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener("click", () => {
+            visibleCount += LOAD_STEP;
+            renderProperties();
+        });
+    }
+
+}
+
+function toggleAccordion(i) {
+    const body = document.getElementById(`acc-${i}`);
+    const icon = body.previousElementSibling.querySelector('.accordion-icon');
+
+    const open = body.classList.contains('open');
+
+    document.querySelectorAll('.accordion-body').forEach(b => b.classList.remove('open'));
+    document.querySelectorAll('.accordion-icon').forEach(ic => ic.textContent = '+');
+
+    if (!open) {
+        body.classList.add('open');
+        icon.textContent = '−';
+    }
 }
