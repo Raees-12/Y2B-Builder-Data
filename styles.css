@@ -918,5 +918,6 @@ body {
     white-space: nowrap;
     flex-shrink: 0;
     position: relative;
-    top: -4px;
+    top: -2px;
 }
+
