@@ -17,6 +17,20 @@ let currentFilters = {
 
 // ---------- HELPERS ----------
 
+function parsePossessionDate(dateStr) {
+    if (!dateStr || !dateStr.includes("Date")) return null;
+
+    const match = dateStr.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if (!match) return null;
+
+    const year = parseInt(match[1]);
+    const month = parseInt(match[2]); // JS month already 0-based in your sheet
+    const day = parseInt(match[3]);
+
+    return new Date(year, month, day);
+}
+
+
 function showToast(message = "Message copied") {
     const toast = document.getElementById("toast");
     if (!toast) return;
@@ -124,7 +138,7 @@ function formatBrokerage(b) {
     return num + '%';
 }
 
-function formatPossessionDate(value) {
+function formatPossessionMonthYear(value) {
     if (!value) return "N/A";
 
     const match = /Date\((\d+),(\d+),(\d+)\)/.exec(value);
@@ -132,16 +146,15 @@ function formatPossessionDate(value) {
 
     const year = parseInt(match[1]);
     const month = parseInt(match[2]);
-    const day = parseInt(match[3]);
 
-    const date = new Date(year, month, day);
+    const date = new Date(year, month, 1);
 
     return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
         month: "short",
         year: "numeric"
     });
 }
+
 
 
 // ---------- INIT ----------
@@ -353,6 +366,19 @@ function sortProperties() {
             filteredProperties.sort((a, b) => a.projectName.localeCompare(b.projectName));
             break;
 
+        case 'possession-near':
+            filteredProperties.sort((a, b) => {
+                const dateA = parsePossessionDate(a.possessionTime);
+                const dateB = parsePossessionDate(b.possessionTime);
+
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1;   // push empty to bottom
+                if (!dateB) return -1;
+
+                return dateA - dateB;   // nearest possession first
+            });
+            break;
+
         default:
             filteredProperties.sort((a, b) => b.id - a.id);
     }
@@ -397,7 +423,7 @@ function groupProjects(properties) {
             priceRange:
                 minPrice === maxPrice
                     ? formatPriceFromNumber(minPrice)
-                    : formatPriceFromNumber(minPrice) + " - " + formatPriceFromNumber(maxPrice),
+                    : `${formatPriceFromNumber(minPrice)} – ${formatPriceFromNumber(maxPrice)}`,
 
             sizeRange:
                 minArea === maxArea
@@ -411,10 +437,25 @@ function groupProjects(properties) {
 }
 
 function formatPriceFromNumber(num) {
-    if (num >= 10000000) return (num / 10000000) + "Cr";
-    if (num >= 100000) return (num / 100000) + "L";
-    return num;
+    if (!num) return "₹0";
+
+    let value;
+    let unit;
+
+    if (num >= 10000000) {
+        value = (num / 10000000).toFixed(2);
+        unit = "Cr";
+    } else if (num >= 100000) {
+        value = (num / 100000).toFixed(2);
+        unit = "L";
+    } else {
+        value = num.toFixed(0);
+        unit = "";
+    }
+
+    return `₹${value} ${unit}`.trim();
 }
+
 
 
 
@@ -441,19 +482,34 @@ function renderProperties() {
         const visibleProjects = grouped.slice(0, visibleCount);
 
         propertyGrid.innerHTML = visibleProjects.map(property => `
-            <div class="property-card" onclick="showPropertyDetails(${property.id})">
+            <div class="property-card" onclick="showPropertyDetails(
+    '${property.projectName}',
+    '${property.city}',
+    '${property.locality}'
+)"
+>
                 <div class="property-content">
                     <div class="property-header">
-                        <h3 class="property-title">${property.projectName}</h3>
-                        <div class="property-status ${property.status?.toLowerCase().includes('ready') ? 'status-ready' : 'status-construction'}">
-                            ${property.status || 'N/A'}
-                        </div>
-                    </div>
+    <h3 class="property-title">${property.projectName}</h3>
 
-                    <div class="property-location">
-                        <span class="location-icon"></span>
-                        <span>${property.locality}, ${property.city}</span>
-                    </div>
+    <div class="property-status ${property.status?.toLowerCase().includes('ready') ? 'status-ready' : 'status-construction'}">
+        ${property.status || 'N/A'}
+    </div>
+</div>
+
+<div class="property-meta-row">
+    <div class="property-location">
+        ${property.locality}, ${property.city}
+    </div>
+
+    ${property.status?.toLowerCase().includes("under")
+                ? `<div class="property-possession-inline">
+                Possession: ${formatPossessionMonthYear(property.possessionTime)}
+           </div>`
+                : ""}
+</div>
+
+
 
                     <div class="property-size">
                         <span class="size-icon"></span>
@@ -494,32 +550,29 @@ function renderProperties() {
 
 // ---------- MODAL ----------
 
-function showPropertyDetails(propertyId) {
-
-    const clicked = allProperties.find(p => p.id === propertyId);
-    if (!clicked) return;
+function showPropertyDetails(projectName, city, locality) {
 
     // get ALL variants of same project
     const variants = allProperties.filter(p =>
-        p.projectName === clicked.projectName &&
-        p.city === clicked.city &&
-        p.locality === clicked.locality &&
+        p.projectName === projectName &&
+        p.city === city &&
+        p.locality === locality &&
         (!currentFilters.size || p.size === currentFilters.size)
     );
 
+    if (!variants.length) return;
 
     const modalOverlay = document.getElementById('modalOverlay');
     const modalTitle = document.getElementById('modalTitle');
     const modalContent = document.getElementById('modalContent');
 
-    modalTitle.textContent = clicked.projectName;
+    modalTitle.textContent = projectName;
 
     modalContent.innerHTML = variants.map((v, i) => {
 
         const title =
-            `${v.size} • ${v.detailedSizing.replace(/Sq\.?\s*Yrd/gi, '').trim()} Sq.Yrd • ₹${formatPrice(v.boxPrice)}`;
+            `${v.size} • ${v.detailedSizing.replace(/Sq\.?\s*Yrd/gi, '').trim()} Sq.Yrd • ${formatPriceFromNumber(priceToNumber(v.boxPrice))}`;
 
-        // 🔹 NEW TOP ROW (prices + status)
         const highlights = `
         <div class="variant-highlights">
             <span><strong>₹/Sq.Yrd:</strong> ${formatPrice(v.pricePerSqYrd)}</span>
@@ -527,9 +580,8 @@ function showPropertyDetails(propertyId) {
             <span><strong>Sale:</strong> ${formatPrice(v.saleDeadAmount)}</span>
             <span><strong>Status:</strong> ${v.status}</span>
         </div>
-    `;
+        `;
 
-        // 🔹 MOVED DOWN DETAILS
         const details = `
         <div class="variant-details">
             <div><strong>Available:</strong> ${v.availableUnits}</div>
@@ -538,9 +590,9 @@ function showPropertyDetails(propertyId) {
             <div><strong>Amenities:</strong> ${v.amenities}</div>
             <div><strong>RERA:</strong> ${v.reraRegistration}</div>
             <div><strong>Builder:</strong> ${v.builderName}</div>
-            <div><strong>Possession:</strong> ${formatPossessionDate(v.possessionTime)}</div>
+            <div><strong>Possession:</strong> ${formatPossessionMonthYear(v.possessionTime)}</div>
         </div>
-    `;
+        `;
 
         return `
         <div class="variant-card">
@@ -555,13 +607,12 @@ function showPropertyDetails(propertyId) {
                 ${details}
             </div>
         </div>
-    `;
+        `;
     }).join('');
-
-
 
     modalOverlay.classList.add('open');
 }
+
 
 
 // ---------- CLOSE MODAL ----------
